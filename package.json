@@ -1,0 +1,17 @@
+{
+    "name": "github-webhook-lambda",
+    "version": "1.0.0",
+    "description": "Lambda function to handle GitHub webhooks and post logs to elasticsearch",
+    "main": "index.js",
+    "type": "module",
+    "scripts": {
+      "start": "node index.js",
+      "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+      "@aws-sdk/client-secrets-manager": "^3.940.0",
+      "axios": "1.13.2"
+    }
+  }

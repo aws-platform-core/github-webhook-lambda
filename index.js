@@ -1,10 +1,8 @@
-import axios from "axios";
 import {
     SecretsManagerClient,
     GetSecretValueCommand,
-    PutSecretValueCommand
 } from "@aws-sdk/client-secrets-manager";
-import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
+import { postlogs } from "./shared/elastic.js";
 
 
 const client = new SecretsManagerClient({
@@ -12,12 +10,33 @@ const client = new SecretsManagerClient({
 });
 
 export const handler = async (event) => {
-    // let elasticHost = await getSecret("ELASTIC_HOST");
-    // elasticHost = JSON.parse(elasticHost.SecretString).secretText;
-    // console.log("ELASTIC_HOST: ", elasticHost);
+    let secretText = JSON.parse(await getSecret().SecretString);
+    let payload = event?.body ? JSON.parse(event?.body) : {};
 
-    let payload = event.body;
-    console.log("Received payload: ", payload);
+    const record = {
+        "@timestamp": payload.workflow_run.updated_at,
+        // job_name: job.name,
+        workflow: payload.workflow_run.name,
+        status: payload.workflow_run.status,
+        conclusion: payload.workflow_run.conclusion,
+        started_at: payload.workflow_run.created_at,
+        completed_at: payload.workflow_run.updated_at,
+        // owner: context.repo.owner,
+        repo: payload.workflow_run.repository.name,
+        run_id: payload.workflow_run.id,
+        release_id: payload.workflow_run.id,
+        env: getRunEnvironment(payload.workflow_run.name),
+        actor: payload.workflow_run.triggering_actor.login,
+        origin: "github"
+    };
+
+    if (payload?.action === "requested") {
+        console.log("Handling requested action");
+    } else if (payload.action === "completed") {
+        console.log("Handling completed action");
+        let response = await postlogs(record, secretText.ELASTIC_ENDPOINT, secretText.ELASTIC_APIKEY);
+        console.log("Response from Elastic: ", response);
+    }
 
     return {
         statusCode: 200,
@@ -25,15 +44,28 @@ export const handler = async (event) => {
     };
 }
 
-async function getSecret(secretName) {
+async function getSecret() {
     try {
         return await client.send(
             new GetSecretValueCommand({
-                SecretId: secretName,
-                VersionStage: "AWSCURRENT",
+                SecretId: process.env.SECRET_ARN
             })
         );
     } catch (error) {
         throw error;
+    }
+}
+
+const getRunEnvironment = (title) => {
+    if (title.includes("staging")) {
+        return "staging";
+    } else if (title.includes("prod")) {
+        return "prod";
+    } else if (title.includes("agile")) {
+        return "agile";
+    } else if (title.includes("test")) {
+        return "test";
+    } else {
+        return "dev";
     }
 }

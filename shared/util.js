@@ -1,6 +1,8 @@
 export const API_TYPE_ENUM = {
     PR: "pull_request",
-    JOBS: "jobs"
+    JOBS: "jobs",
+    WORKFLOW: "workflow",
+    DIFF: "diff"
 }
 
 export const ORG_NAME_ENUM = {
@@ -17,7 +19,8 @@ export const EVENT_TYPE = {
 
 export const ACTION_TYPE = {
     REQUESTED: "requested",
-    COMPLETED: "completed"
+    COMPLETED: "completed",
+    INPROGRESS: "in_progress"
 }
 
 export const ORIGIN = {

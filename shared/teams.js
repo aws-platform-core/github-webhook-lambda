@@ -62,7 +62,17 @@ export const sendTeamsNotification = async (payload, record, teamsWebhookUrl, is
                         `<h2 style="color:#0078D4; margin-top:20px;"><u>Job Summary</u></h2>
                         <div style="padding:5px; border-radius:5px;">
                             <ul>
-                                ${record.jobs.map(job => `<li><b>${job.name}:</b> ${job.conclusion === "success" ? "✅ Success" : job.conclusion === "failure" ? "❌ Failure" : job.conclusion === "cancelled" ? "🛑 Cancelled" : job.conclusion}</li>`).join("")}
+                                ${record.jobs.map(job => `<li><b>${job.name}:</b> ${job.conclusion === "success" ? "✅ Success" : 
+                                    job.conclusion === "failure" ? "❌ Failure" : 
+                                        job.conclusion === "cancelled" ? 
+                                            "🛑 Cancelled" : job.conclusion}</li>`).join("")}
+                            </ul>
+                        </div>` : ""}  
+                     ${(!!record.diff && !isStart) ? 
+                        `<h2 style="color:#0078D4; margin-top:20px;"><u>Diff Summary</u></h2>
+                        <div style="padding:5px; border-radius:5px;">
+                            <ul>
+                                ${record.diff.split("\n").map(line => `<li>${line}</li>`).join("")}
                             </ul>
                         </div>` : ""}  
                     <span style="height:10px; display:block;"></span>               

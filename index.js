@@ -44,24 +44,26 @@ export const handler = async (event) => {
         workflow_url: payload.workflow_run.url,
         logs_url: payload.workflow_run.logs_url,
         pr_url: null, // to be filled if workflow triggered by a PR
-        duration: "",
-        jobs: [{name: "generate release tag", conclusion: "success"},
-            {name: "build and push docker image", conclusion: "success"},
-            {name: "trigger chart tagger", conclusion: "success"}
-        ] // to be filled for completed action
+        duration: null,
+        jobs: [], // to be filled for completed action
+        diff: null,
+        // merge_commit_sha: null // to be filled if workflow triggered by a PR
     };
     await getReleaseId(payload, record);
+    
     console.log("Constructed record: ", record);
 
-    if (payload?.action === ACTION_TYPE.REQUESTED && isInitialState) {
+    if ((payload?.action === ACTION_TYPE.REQUESTED || 
+        (payload?.action === ACTION_TYPE.INPROGRESS && payload.event === EVENT_TYPE.PULL_REQUEST))
+         && isInitialState) {
         await sendTeamsNotification(payload, record, secretText.TEAMS_WEBHOOK);
         console.log("Handling requested action");
     } else if (payload?.action === ACTION_TYPE.COMPLETED) {
         console.log("Handling completed action");
         record.duration = getDuration(record.started_at, record.completed_at);
+        await getJobDetails(payload, record);
+        await computeDiff(payload, record);
         await sendTeamsNotification(payload, record, secretText.TEAMS_WEBHOOK, false);
-        let jobs = await callGithubApi(payload, API_TYPE_ENUM.JOB, PAT);
-        console.log("Received jobs data: ", jobs);
         await postlogs(record, secretText.ELASTIC_ENDPOINT, secretText.ELASTIC_APIKEY);
     }
 
@@ -89,6 +91,7 @@ const getReleaseId = async (payload, record) => {
         if (prMetaData.length > 0) {
             const title = prMetaData[0].title.toLowerCase();
             record.pr_url = prMetaData[0].url;
+            // record.merge_commit_sha = prMetaData[0].merge_commit_sha;
             if (title.includes('[') && title.includes(']')) {
                 console.log("Release Id found in PR title: " + title.substring(title.indexOf("[") + 1, title.lastIndexOf("]")));
                 record.release_id = title.substring(title.indexOf("[") + 1, title.lastIndexOf("]"));
@@ -105,6 +108,31 @@ const getReleaseId = async (payload, record) => {
         // Workflow triggered on a release/main branch, new release id created with format: env-runId-shortSha
         isInitialState = true;
         record.release_id = computeReleaseId(payload);
+    }
+}
+
+const getJobDetails = async (payload, record) => {
+    if (payload?.action === ACTION_TYPE.COMPLETED) {
+        let jobs = await callGithubApi(payload, API_TYPE_ENUM.JOBS, PAT);
+        jobs = jobs?.jobs || [];
+        if (jobs && jobs.length > 0) {
+            record.jobs = jobs.map(job => ({
+                name: job.name,
+                conclusion: job.conclusion
+            }));
+        }
+        console.log("Received jobs data: ", record.jobs);
+    }
+}
+
+const computeDiff = async (payload, record) => {
+    const runs = await callGithubApi(payload, API_TYPE_ENUM.WORKFLOW, PAT);
+    
+    if (runs && runs?.workflow_runs.length > 1) {
+        const latest_run = runs.workflow_runs[1];
+        const diffData = await callGithubApi(payload, API_TYPE_ENUM.DIFF, PAT);
+        console.log("Received diff data: ", diffData);
+        record.diff = diffData?.files?.map(file => file.filename).toString() || [];
     }
 }
 

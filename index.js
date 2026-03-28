@@ -47,7 +47,7 @@ export const handler = async (event) => {
         duration: null,
         jobs: [], // to be filled for completed action
         diff: null,
-        // merge_commit_sha: null // to be filled if workflow triggered by a PR
+        merge_commit_sha: null // to be filled if workflow triggered by a PR
     };
     await getReleaseId(payload, record);
     
@@ -66,7 +66,6 @@ export const handler = async (event) => {
         await sendTeamsNotification(payload, record, secretText.TEAMS_WEBHOOK, false);
         await postlogs(record, secretText.ELASTIC_ENDPOINT, secretText.ELASTIC_APIKEY);
     }
-
     return {
         statusCode: 200,
         body: "Success"
@@ -91,7 +90,7 @@ const getReleaseId = async (payload, record) => {
         if (prMetaData.length > 0) {
             const title = prMetaData[0].title.toLowerCase();
             record.pr_url = prMetaData[0].url;
-            // record.merge_commit_sha = prMetaData[0].merge_commit_sha;
+            record.merge_commit_sha = prMetaData[0].merge_commit_sha;
             if (title.includes('[') && title.includes(']')) {
                 console.log("Release Id found in PR title: " + title.substring(title.indexOf("[") + 1, title.lastIndexOf("]")));
                 record.release_id = title.substring(title.indexOf("[") + 1, title.lastIndexOf("]"));
@@ -126,13 +125,19 @@ const getJobDetails = async (payload, record) => {
 }
 
 const computeDiff = async (payload, record) => {
-    const runs = await callGithubApi(payload, API_TYPE_ENUM.WORKFLOW, PAT);
-    
-    if (runs && runs?.workflow_runs.length > 1) {
-        const latest_run = runs.workflow_runs[1];
-        const diffData = await callGithubApi(payload, API_TYPE_ENUM.DIFF, PAT);
+    // For PR triggered workflows, compute diff with base branch. 
+    if (payload.workflow_run.event === EVENT_TYPE.PULL_REQUEST) {
+        const diffData = await callGithubApi(payload, API_TYPE_ENUM.DIFF_PR, PAT, record.merge_commit_sha);
         console.log("Received diff data: ", diffData);
         record.diff = diffData?.files?.map(file => file.filename).toString() || [];
+    } else { //For release/main branch triggered workflows, compute diff with last successful run of the same workflow.
+        const runs = await callGithubApi(payload, API_TYPE_ENUM.WORKFLOW, PAT);
+        if (runs && runs?.workflow_runs.length > 1) {
+            const latest_run = runs.workflow_runs[1];
+            const diffData = await callGithubApi(payload, API_TYPE_ENUM.DIFF, PAT, latest_run.head_sha);
+            console.log("Received diff data: ", diffData);
+            record.diff = diffData?.files?.map(file => file.filename).toString() || [];
+        }
     }
 }
 

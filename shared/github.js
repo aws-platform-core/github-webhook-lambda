@@ -1,7 +1,7 @@
 import axios from "axios";
 import { API_TYPE_ENUM } from "./util.js";
 
-export const callGithubApi = async (payload, apiType, token) => {
+export const callGithubApi = async (payload, apiType, token, sha = null) => {
 
     let url = "https://api.github.com/repos/";
     switch (apiType) {
@@ -15,6 +15,9 @@ export const callGithubApi = async (payload, apiType, token) => {
             url += `${payload.workflow_run.repository.full_name}/actions/workflows/${payload.workflow_run.workflow_id}/runs`;
             break;
         case API_TYPE_ENUM.DIFF:
+            url += `${payload.workflow_run.repository.full_name}/compare/${sha}...${payload.workflow_run.head_sha}`;
+            break;
+        case API_TYPE_ENUM.DIFF_PR:
             url += `${payload.workflow_run.repository.full_name}/commits/${payload.workflow_run.head_sha}`;
             break;
         default:
@@ -24,8 +27,8 @@ export const callGithubApi = async (payload, apiType, token) => {
     console.log("Api Endpoint: " + url);
     const response = await axios.get(url, {
         headers: {
-        "Authorization": `Bearer ${token}`,
-        "Accept": "application/vnd.github.v3+json"
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/vnd.github.v3+json"
         }
     });
 

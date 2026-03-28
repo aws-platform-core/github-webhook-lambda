@@ -2,7 +2,8 @@ export const API_TYPE_ENUM = {
     PR: "pull_request",
     JOBS: "jobs",
     WORKFLOW: "workflow",
-    DIFF: "diff"
+    DIFF: "diff",
+    DIFF_PR: "diff_PR"
 }
 
 export const ORG_NAME_ENUM = {

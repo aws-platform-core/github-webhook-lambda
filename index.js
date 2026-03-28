@@ -46,16 +46,15 @@ export const handler = async (event) => {
         pr_url: null, // to be filled if workflow triggered by a PR
         duration: null,
         jobs: [], // to be filled for completed action
-        diff: null,
-        merge_commit_sha: null // to be filled if workflow triggered by a PR
+        diff: '', // to be filled for completed action
+        run_attempt: payload.workflow_run.run_attempt
     };
     await getReleaseId(payload, record);
     
     console.log("Constructed record: ", record);
 
     if ((payload?.action === ACTION_TYPE.REQUESTED || 
-        (payload?.action === ACTION_TYPE.INPROGRESS && payload.event === EVENT_TYPE.PULL_REQUEST))
-         && isInitialState) {
+        (payload?.action === ACTION_TYPE.INPROGRESS && payload.workflow_run.run_attempt > 1))) {
         await sendTeamsNotification(payload, record, secretText.TEAMS_WEBHOOK);
         console.log("Handling requested action");
     } else if (payload?.action === ACTION_TYPE.COMPLETED) {
@@ -85,12 +84,12 @@ async function getSecret() {
 }
 
 const getReleaseId = async (payload, record) => {
-    if (payload.workflow_run.event === EVENT_TYPE.PULL_REQUEST) {
+    // if (payload.workflow_run.event === EVENT_TYPE.PULL_REQUEST) {
         let prMetaData = await callGithubApi(payload, API_TYPE_ENUM.PR, PAT);
         if (prMetaData.length > 0) {
             const title = prMetaData[0].title.toLowerCase();
             record.pr_url = prMetaData[0].url;
-            record.merge_commit_sha = prMetaData[0].merge_commit_sha;
+            // record.merge_commit_sha = prMetaData[0].merge_commit_sha;
             if (title.includes('[') && title.includes(']')) {
                 console.log("Release Id found in PR title: " + title.substring(title.indexOf("[") + 1, title.lastIndexOf("]")));
                 record.release_id = title.substring(title.indexOf("[") + 1, title.lastIndexOf("]"));
@@ -100,14 +99,14 @@ const getReleaseId = async (payload, record) => {
                 record.release_id = computeReleaseId(payload);
             }
         } else {
-            console.log("PR unknown");
-            throw new Error(MESSAGES.REL_ID_NOT_FOUND);
+            isInitialState = true;
+            record.release_id = computeReleaseId(payload);
         }
-    } else {
-        // Workflow triggered on a release/main branch, new release id created with format: env-runId-shortSha
-        isInitialState = true;
-        record.release_id = computeReleaseId(payload);
-    }
+    // } else {
+    //     // Workflow triggered on a release/main branch, new release id created with format: env-runId-shortSha
+    //     isInitialState = true;
+    //     record.release_id = computeReleaseId(payload);
+    // }
 }
 
 const getJobDetails = async (payload, record) => {
@@ -126,8 +125,8 @@ const getJobDetails = async (payload, record) => {
 
 const computeDiff = async (payload, record) => {
     // For PR triggered workflows, compute diff with base branch. 
-    if (payload.workflow_run.event === EVENT_TYPE.PULL_REQUEST) {
-        const diffData = await callGithubApi(payload, API_TYPE_ENUM.DIFF_PR, PAT, record.merge_commit_sha);
+    if (payload.workflow_run.event === EVENT_TYPE.PUSH) {
+        const diffData = await callGithubApi(payload, API_TYPE_ENUM.DIFF_PR, PAT);
         console.log("Received diff data: ", diffData);
         record.diff = diffData?.files?.map(file => file.filename).toString() || [];
     } else { //For release/main branch triggered workflows, compute diff with last successful run of the same workflow.
@@ -136,7 +135,7 @@ const computeDiff = async (payload, record) => {
             const latest_run = runs.workflow_runs[1];
             const diffData = await callGithubApi(payload, API_TYPE_ENUM.DIFF, PAT, latest_run.head_sha);
             console.log("Received diff data: ", diffData);
-            record.diff = diffData?.files?.map(file => file.filename).toString() || [];
+            record.diff = diffData?.files?.map(file => file.filename).toString() || '';
         }
     }
 }

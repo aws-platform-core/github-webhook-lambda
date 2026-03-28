@@ -25,6 +25,11 @@ export const sendTeamsNotification = async (payload, record, teamsWebhookUrl, is
         // "themeColor": getColor(payload),
         "title": `${getPreText(getColor(payload))} ${getTitle(payload)}`,
         "text": `<div style="font-family:Segoe UI, sans-serif; font-size:14px; border-top:solid 10px #${getColor(payload)}; padding:5px; border-radius:0px;">
+                    <div style="color:gray; font-size:12px;">
+                        Started at: <b>${convertUTCToLocalTime(record.started_at, "Europe/Amsterdam")}</b>
+                        &nbsp;&nbsp;&nbsp;&nbsp;
+                        ${!isStart ? `Completed at: <b>${convertUTCToLocalTime(record.completed_at, "Europe/Amsterdam")}</b>` : ""}
+                    </div>
                     <h2 style="color:#0078D4; margin-bottom:10px;"><u>Release Information</u></h2>
                     
                     <table>
@@ -72,16 +77,11 @@ export const sendTeamsNotification = async (payload, record, teamsWebhookUrl, is
                         `<h2 style="color:#0078D4; margin-top:20px;"><u>Diff Summary</u></h2>
                         <div style="padding:5px; border-radius:5px;">
                             <ul>
-                                ${record.diff.split(",").map(line => `<li>${line}</li>`).join("")}
+                                ${record?.diff?.split(",").map(line => `<li>${line}</li>`).join("")}
                             </ul>
                         </div>` : ""}  
                     <span style="height:10px; display:block;"></span>               
-                    <hr></hr>
-                    <div style="color:gray; font-size:12px;">
-                        Started at: <b>${convertUTCToLocalTime(record.started_at, "Europe/Amsterdam")}</b>
-                        &nbsp;&nbsp;&nbsp;&nbsp;
-                        ${!isStart ? `Completed at: <b>${convertUTCToLocalTime(record.completed_at, "Europe/Amsterdam")}</b>` : ""}
-                    </div>
+                    <!--hr></hr-->
                 </div>`,
         "potentialAction": [{
             "@type": "OpenUri",
@@ -171,7 +171,8 @@ export const sendTeamsNotification = async (payload, record, teamsWebhookUrl, is
 
 const getTitle = (payload) => {
     
-    if (payload.action === ACTION_TYPE.REQUESTED) {
+    if (payload.action === ACTION_TYPE.REQUESTED || 
+        (payload.action === ACTION_TYPE.INPROGRESS && payload.workflow_run.run_attempt > 1)) {
         return `🚀 Deployment started - ${payload.workflow_run.repository.full_name}`;
     } else if (payload.action === ACTION_TYPE.COMPLETED) {
         if (payload.workflow_run.conclusion === "success") {
@@ -185,7 +186,8 @@ const getTitle = (payload) => {
 };
 
 const getColor = (payload) => {
-    if (payload.action === ACTION_TYPE.REQUESTED) {
+    if (payload.action === ACTION_TYPE.REQUESTED || 
+        (payload.action === ACTION_TYPE.INPROGRESS && payload.workflow_run.run_attempt > 1)) {
         return COLORS.STARTED;
     } else if (payload.action === ACTION_TYPE.COMPLETED) {
         if (payload.workflow_run.conclusion === "success") {

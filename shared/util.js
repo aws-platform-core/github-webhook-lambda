@@ -15,7 +15,8 @@ export const ORG_NAME_ENUM = {
 
 export const EVENT_TYPE = {
     PULL_REQUEST: "pull_request",
-    WORKFLOW_RUN: "workflow_run"
+    WORKFLOW_RUN: "workflow_run",
+    PUSH: "push",
 };
 
 export const ACTION_TYPE = {

@@ -47,3 +47,27 @@ export const getRunEnvironment = (title) => {
 export const getAppDomain = (orgName) => {
     return ORG_NAME_ENUM[orgName] || "unknown";
 }
+
+export const COLORS = {
+    STARTED:   '17A2B8', // blue
+    SUCCESS:   '07B11E', // green
+    FAILURE:   'FF2104', // red
+    CANCELLED: 'FFC107'  // yellow
+};
+
+export const getDuration = (started_at, completed_at) => {
+    const start = new Date(started_at);
+    const end = new Date(completed_at);
+    const duration = end - start;
+
+    const minutes = Math.floor((duration % 3600000) / 60000);
+    const seconds = Math.floor((duration % 60000) / 1000);
+
+    return `${minutes}m ${seconds}s`;
+}
+
+export const convertUTCToLocalTime = (utcDateString, timezone) => {
+    const utcDate = new Date(utcDateString);
+    const localDate = new Date(utcDate.getTime() + (new Date().getTimezoneOffset() * 60000));
+    return localDate.toLocaleString("en-NL", { timeZone: timezone });
+}

@@ -3,20 +3,6 @@ import { ACTION_TYPE, COLORS, convertUTCToLocalTime } from "./util.js";
 
 export const sendTeamsNotification = async (payload, record, teamsWebhookUrl, isStart = true) => {
     console.log("Sending Teams notification with record: ");
-    // const body = {
-    //     text: `New workflow run event: ${record.workflow} - ${record.status}`,
-    //     attachments: [
-    //         {
-    //             title: "Workflow Details",
-    //             fields: [
-    //                 { name: "Repository", value: record.repo, inline: true },
-    //                 { name: "Run ID", value: record.run_id, inline: true },
-    //                 { name: "Release ID", value: record.release_id, inline: true },
-    //                 { name: "Triggered By", value: record.actor, inline: true },
-    //             ],
-    //         },
-    //     ],
-    // };
 
     const body = {
         "@type": "MessageCard",
@@ -64,7 +50,7 @@ export const sendTeamsNotification = async (payload, record, teamsWebhookUrl, is
                       </tr>` : ""}
                     </table>
                     ${(record.jobs?.length && !isStart) ? 
-                        `<h2 style="color:#0078D4; margin-top:20px;"><u>Job Summary</u></h2>
+                        `<h2 style="color:#0078D4; margin-top:10px;"><u>Job Summary</u></h2>
                         <div style="padding:5px; border-radius:5px;">
                             <ul>
                                 ${record.jobs.map(job => `<li><b>${job.name}:</b> ${job.conclusion === "success" ? "✅ Success" : 
@@ -74,7 +60,7 @@ export const sendTeamsNotification = async (payload, record, teamsWebhookUrl, is
                             </ul>
                         </div>` : ""}  
                      ${(!!record.diff && !isStart) ? 
-                        `<h2 style="color:#0078D4; margin-top:20px;"><u>Diff Summary</u></h2>
+                        `<h2 style="color:#0078D4; margin-top:10px;"><u>Diff Summary</u></h2>
                         <div style="padding:5px; border-radius:5px;">
                             <ul>
                                 ${record?.diff?.split(",").map(line => `<li>${line}</li>`).join("")}
@@ -106,81 +92,49 @@ export const sendTeamsNotification = async (payload, record, teamsWebhookUrl, is
             "name": "View Deployment Status",
             "targets": [{
                     "os": "default",
-                    "uri": `https://eddc60f442084189a14ff71e0fe49f36.eu-central-1.aws.cloud.es.io/s/sre/app/dashboards#/view/63b96f92-3d4b-4bb4-a497-11d8d00cd74d?_g=(filters:!(),refreshInterval:(pause:!t,value:60000),time:(from:''2026-02-26T00:00:00.802Z'',to:now))&_a=(query:(language:kuery,query:''release_id:"${ record.release_id}"''))`
+                    "uri": `https://eddc60f442084189a14ff71e0fe49f36.eu-central-1.aws.cloud.es.io/s/sre/app/dashboards#/view/63b96f92-3d4b-4bb4-a497-11d8d00cd74d?_g=(filters:!(),refreshInterval:(pause:!t,value:60000),time:(from:%272026-02-26T00:00:00.802Z%27,to:now))&_a=(filters:!((query:(match_phrase:(release_id:%27${ record.release_id}%27)))))`
+                    
                 }
             ]
-        }],
-        // "sections": [
-        //     {
-        //         "activityTitle": "<b>Pipeline Metadata</b>",
-        //         "facts": [
-        //             {
-        //                 "name": "<u><b>Workflow :</b></u>",
-        //                 "value": "portal-glow"
-        //             },
-        //             {
-        //                 "name": "Run :",
-        //                 "value": "main"
-        //             },
-        //             {
-        //                 "name": "Actor :",
-        //                 "value": "Success"
-        //             }
-        //         ]
-        //     },
-        //     {
-        //         "activityTitle": "Job Results",
-        //         "facts": [
-        //             {
-        //                 "name": "get-image-tag :",
-        //                 "value": "Success"
-        //             },
-        //             {
-        //                 "name": "build-and-push-docker-image",
-        //                 "value": "Success"
-        //             },
-        //             {
-        //                 "name": "trigger-chart-tagger",
-        //                 "value": "Success"
-        //             },
-        //             {
-        //                 "name": "port-logs",
-        //                 "value": "Success"
-        //             }
-        //         ]
-        //     }
-        // ]
+        }]
     }
+    await callWebhook(teamsWebhookUrl, body);
+};
 
+const callWebhook = async (teamsWebhookUrl, body, retryCount = 3) => {
     try {
         const response = await axios.post(teamsWebhookUrl, JSON.stringify(body), {
             headers: {
                 "Content-Type": "application/json",
             },
         });
-
         if (response.status !== 202) {
             throw new Error(`Failed to send Teams notification: ${response}`);
         }
-
         console.log("Teams notification sent successfully");
     } catch (error) {
-        console.error("Error sending Teams notification: ", error);
+        if (retryCount > 0) {
+            console.warn(`Error sending Teams notification, retrying... (${retryCount} attempts left)`, error);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            await callWebhook(teamsWebhookUrl, body, retryCount - 1);
+        } else {
+            console.error("Error sending Teams notification: ", error);
+        }
     }
-};
+}
 
 const getTitle = (payload) => {
     
     if (payload.action === ACTION_TYPE.REQUESTED || 
         (payload.action === ACTION_TYPE.INPROGRESS && payload.workflow_run.run_attempt > 1)) {
-        return `🚀 Deployment started - ${payload.workflow_run.repository.full_name}`;
+        return `🚀 CI: Deployment started - ${payload.workflow_run.repository.full_name}`;
     } else if (payload.action === ACTION_TYPE.COMPLETED) {
         if (payload.workflow_run.conclusion === "success") {
-            return `✅ Deployment succeeded - ${payload.workflow_run.repository.full_name}`;
+            return `✅ CI: Deployment succeeded - CD health awaited - ${payload.workflow_run.repository.full_name}`;
         } else if (payload.workflow_run.conclusion === "failure") {
-            return `❌ Deployment failed - ${payload.workflow_run.repository.full_name}`;
+            return `❌ CI: Deployment failed - ${payload.workflow_run.repository.full_name}`;
         } else if (payload.workflow_run.conclusion === "cancelled") {
-            return `🛑 Deployment cancelled - ${payload.workflow_run.repository.full_name}`;
+            return `🛑 CI: Deployment cancelled - ${payload.workflow_run.repository.full_name}`;
         }
     }
 };

@@ -55,7 +55,7 @@ export const getAppDomain = (orgName) => {
 
 export const COLORS = {
     STARTED:   '17A2B8', // blue
-    SUCCESS:   '07B11E', // green
+    SUCCESS:   '2CF5B6', // green
     FAILURE:   'FF2104', // red
     CANCELLED: 'FFC107'  // yellow
 };

@@ -98,30 +98,51 @@ export const sendTeamsNotification = async (payload, record, teamsWebhookUrl, is
             ]
         }]
     }
-    await callWebhook(teamsWebhookUrl, body);
-};
-
-const callWebhook = async (teamsWebhookUrl, body, retryCount = 3) => {
     try {
         const response = await axios.post(teamsWebhookUrl, JSON.stringify(body), {
             headers: {
                 "Content-Type": "application/json",
-            },
+            }
         });
-        if (response.status !== 202) {
+        if (![200, 202].includes(response.status)) {
+            console.error("Error sending Teams notification:", {
+                status: response?.status,
+                data: response?.data
+              });
             throw new Error(`Failed to send Teams notification: ${response}`);
         }
         console.log("Teams notification sent successfully");
     } catch (error) {
-        if (retryCount > 0) {
-            console.warn(`Error sending Teams notification, retrying... (${retryCount} attempts left)`, error);
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            await callWebhook(teamsWebhookUrl, body, retryCount - 1);
-        } else {
-            console.error("Error sending Teams notification: ", error);
-        }
+        console.error("Error sending Teams notification:", {
+            message: error.message,
+            status: error.response?.status,
+            data: error.response?.data
+          });
+        throw error; // re-throw to trigger retry mechanism if needed
     }
 }
+
+// const callWebhook = async (teamsWebhookUrl, body, retryCount = 3) => {
+//     try {
+//         const response = await axios.post(teamsWebhookUrl, JSON.stringify(body), {
+//             headers: {
+//                 "Content-Type": "application/json",
+//             },
+//         });
+//         if (response.status !== 202) {
+//             throw new Error(`Failed to send Teams notification: ${response}`);
+//         }
+//         console.log("Teams notification sent successfully");
+//     } catch (error) {
+//         if (retryCount > 0) {
+//             console.warn(`Error sending Teams notification, retrying... (${retryCount} attempts left)`, error);
+//             await new Promise(resolve => setTimeout(resolve, 2000));
+//             await callWebhook(teamsWebhookUrl, body, retryCount - 1);
+//         } else {
+//             console.error("Error sending Teams notification: ", error);
+//         }
+//     }
+// }
 
 const getTitle = (payload) => {
     

@@ -1,7 +1,7 @@
 {
-    "name": "github-webhook-lambda",
+    "name": "github-webhook-worker",
     "version": "1.0.0",
-    "description": "Lambda function to handle GitHub webhooks and post logs to elasticsearch",
+    "description": "Worker Lambda function to handle GitHub event messages from SQS queue and post logs to elasticsearch with MS Team notifications",
     "main": "index.js",
     "type": "module",
     "scripts": {

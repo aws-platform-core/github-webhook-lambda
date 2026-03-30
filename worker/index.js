@@ -11,10 +11,22 @@ let PAT = ""; // Personal Access Token for GitHub API, should be stored securely
 let isInitialState = false
 
 const client = new SecretsManagerClient({
-    region: "us-east-1",
+    region: process.env.REGION
 });
 
 export const handler = async (event) => {
+    for (const record of event.Records) {
+        console.log("Received record: ", JSON.stringify(record));
+        try {
+            await processRecord(record);
+        } catch (error) {
+            console.error("Error processing record: ", error);
+            throw error; // re-throw to trigger retry mechanism if needed
+        }
+    }
+}
+
+const processRecord = async (event) => {
     let secretValue = await getSecret();
     console.log("Received secret: ", secretValue);
     let secretText = JSON.parse(secretValue.SecretString);
@@ -65,13 +77,9 @@ export const handler = async (event) => {
         await sendTeamsNotification(payload, record, secretText.TEAMS_WEBHOOK, false);
         await postlogs(record, secretText.ELASTIC_ENDPOINT, secretText.ELASTIC_APIKEY);
     }
-    return {
-        statusCode: 200,
-        body: "Success"
-    };
 }
 
-async function getSecret() {
+const getSecret = async () => {
     try {
         return await client.send(
             new GetSecretValueCommand({

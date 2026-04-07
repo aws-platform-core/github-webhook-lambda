@@ -1,0 +1,18 @@
+{
+    "name": "generate_release_id",
+    "version": "1.0.0",
+    "description": "A Lambda function to generate a unique release ID for GitHub releases.",
+    "main": "index.js",
+    "type": "module",
+    "scripts": {
+        "start": "node index.js",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "@aws-sdk/client-dynamodb": "^3.1024.0",
+        "@aws-sdk/client-secrets-manager": "^3.940.0",
+        "@aws-sdk/client-sfn": "^3.1024.0"
+    }
+}

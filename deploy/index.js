@@ -3,6 +3,7 @@ import {
     SecretsManagerClient,
     GetSecretValueCommand,
 } from "@aws-sdk/client-secrets-manager";
+import axios from "axios";
 
 const db = new DynamoDBClient();
 const client = new SecretsManagerClient({
@@ -47,17 +48,17 @@ const deploy = async (release_info) => {
       return;
     }
     const secret = await getSecret();
-    secretValue = secret.SecretString;
+    console.log("Received secret: ", secret);
+    const secretValue = secret.SecretString;
     if (release_info.Item.platform.S === "github") {
         // /repos/{owner}/{repo}/statuses/{sha}
-        const response = await axios.post(`https://api.github.com/repos/${release_info.Item.repo.S}/statuses/${release_info.Item.commit_sha.S}`, {
+        const response = await axios.post(`https://api.github.com/repos/${release_info.Item.repo.S}/statuses/${release_info.Item.sha.S}`, {
             state: "success",
             context: "service-now-approval",
-            description: `Deployment for release ${release_info.Item.release_id.S} approved by ServiceNow change request ${release_info.Item.change_request_id.S}`,
-            environment: release_info.Item.env.S
+            description: `ServiceNow change request number '${release_info.Item.change_request_id.S}' is approved!`,
         }, {
             headers: {
-                Authorization: `Bearer ${secretValue.GITHUB_PAT}`,
+                Authorization: `Bearer ${JSON.parse(secretValue).GITHUB_PAT}`,
                 "Accept": "application/vnd.github.v3+json"
             }
         });
@@ -79,6 +80,7 @@ const updateServiceNowCRWithStatus = async (change_request_id) => {
 };
 
 const getSecret = async () => {
+  console.log("Secret ARN: ", process.env.SECRET_ARN);
     try {
         return await client.send(
             new GetSecretValueCommand({

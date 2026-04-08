@@ -13,16 +13,15 @@ export const handler = async (event) => {
     env: body.env
   };
 
-  const release_id = `${body.env}-${body.repo}-${body.platform}-${Date.now()}`;
+  const release_id = `${body.env}-${body.platform}-${Date.now()}`;
 
   await db.send(new PutItemCommand({
     TableName: process.env.DYNAMODB_TABLE_NAME,
     Item: {
       release_id: { S: release_id },
-      repo: { S: body.repo },
-      commit_sha: { S: body.commit_sha },
+      repo: { S: "" },
+      sha: { S: "" },
       platform: { S: body.platform },
-      branch: { S: body.branch },
       env: { S: body.env },
       change_request_id: { S: "" },
       pr_number: { S: "" },
